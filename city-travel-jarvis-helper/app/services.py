@@ -41,7 +41,11 @@ class CityService:
   except Exception as e:
    logger.exception('Write preview failed for capability %s',request.capability)
    return self.response(request.request_id,'error',summary='Не удалось подготовить preview',error={'code':'INTERNAL_ERROR','message':'Внутренняя ошибка City Helper. Проверьте Railway logs по request_id.','exception_type':type(e).__name__,'retryable':True})
-  plan.update(capability=request.capability,dry_run=request.context.dry_run,created_at=now_iso());dg=digest(plan);pid=preview_store.put({'plan':plan,'digest':dg})
+  # /write/preview is already non-mutating. A model may set context.dry_run=true
+  # merely because the user said "nothing written yet". Do not turn such a
+  # preview into an uncommittable object: the separate confirmed commit remains
+  # the actual safety boundary.
+  plan.update(capability=request.capability,dry_run=False,requested_dry_run=bool(request.context.dry_run),created_at=now_iso());dg=digest(plan);pid=preview_store.put({'plan':plan,'digest':dg})
   token=create_token({'action':'city_write','preview_id':pid,'capability':request.capability,'digest':dg,'dry_run':request.context.dry_run})
   pv={'preview_id':pid,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds,'digest':dg,'write_diff':plan.get('diff',{}),'warnings':plan.get('warnings',[]),'requires_separate_confirmation':True,'nothing_written':True}
   confirmation={'preview_id':pid,'capability':request.capability,'confirmed':True,'instruction':f'На отдельное подтверждение вызови commitCityWriteCapability с preview_id={pid}, capability={request.capability}, confirmed=true. commit_token можно не передавать.'}
@@ -56,7 +60,6 @@ class CityService:
   if request.commit_token:
    token=read_token(request.commit_token,'city_write')
    if token.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'COMMIT_TOKEN_INVALID','retryable':False})
-   if token.get('dry_run'):return self.response(request.request_id,'rejected',error={'code':'POLICY_REJECTED','retryable':False})
    pid=token['preview_id'];stored=preview_store.get(pid)
    if stored['digest']!=token['digest']:raise HTTPException(400,'Preview digest mismatch')
   else:
@@ -64,7 +67,6 @@ class CityService:
    stored=preview_store.get(pid)
    plan=stored.get('plan',{})
    if plan.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'PREVIEW_CAPABILITY_MISMATCH','retryable':False})
-   if plan.get('dry_run'):return self.response(request.request_id,'rejected',error={'code':'POLICY_REJECTED','retryable':False})
   result=self._apply(stored['plan'],pid,stored['digest']);preview_store.consume(pid)
   return self.response(request.request_id,'committed',summary=stored['plan']['summary'],data=result,warnings=stored['plan'].get('warnings',[]),sources=stored['plan'].get('sources',[]))
 

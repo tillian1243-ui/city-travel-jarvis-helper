@@ -4,7 +4,15 @@ from pydantic import BaseModel, Field, model_validator
 class AttachmentRef(BaseModel):
     ref: str; name: str; mime_type: str; size_bytes: int | None = None; sha256: str | None = None
 class RequestContext(BaseModel):
-    user_intent: str | None = None; source_plugin_ids: list[str] = Field(default_factory=list); dry_run: bool = False
+    user_intent: str | None = None
+    source_plugin_ids: list[str] = Field(default_factory=list)
+    dry_run: bool = Field(
+        default=False,
+        description=(
+            "Read-simulation hint only. For write preview omit or keep false: "
+            "the preview endpoint already writes nothing, and a later explicit confirmation is the safety boundary."
+        ),
+    )
 class PluginRequest(BaseModel):
     contract_version: Literal["0.1.0"] = "0.1.0"
     request_id: str = Field(min_length=4, max_length=160)

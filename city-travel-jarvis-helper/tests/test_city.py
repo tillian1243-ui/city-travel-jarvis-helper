@@ -82,7 +82,15 @@ def test_route_export(s):
  pv=s.preview(r('city.route.save',{'title':'Loop','route_type':'cycling','points':[{'name':'A','latitude':55.75,'longitude':37.6},{'name':'B','latitude':55.76,'longitude':37.62}]}));rid=c(s,pv,'city.route.save')['data']['entity_ids']['route_id'];ep=s.preview(r('city.route.export',{'route_id':rid,'formats':['gpx','kml','pdf']}));assert len(c(s,ep,'city.route.export')['data']['files'])==3
 def test_maturity(s):
  pv=s.preview(r('city.maturity.feedback',{'capability':'city.route.cycling','outcome':'SUCCESS','accuracy_rating':9,'practical_rating':9}));c(s,pv,'city.maturity.feedback');row=next(x for x in s.storage.read_rows('Capability_Maturity') if x['CapabilityID']=='city.route.cycling');assert row['RealTests']==1
-def test_dry_run(s):
- pv=s.preview(r('city.rule.save',{'rule':'test'},True));assert c(s,pv,'city.rule.save')['error']['code']=='POLICY_REJECTED'
+def test_write_preview_dry_run_flag_does_not_block_confirmed_commit_by_token(s):
+ pv=s.preview(r('city.rule.save',{'rule':'test'},True))
+ assert pv['status']=='preview_ready' and pv['preview']['nothing_written'] is True
+ cm=c(s,pv,'city.rule.save')
+ assert cm['status']=='committed' and any(x.get('Rule')=='test' for x in s.storage.read_rows('City_Rules'))
+
+def test_write_preview_dry_run_flag_does_not_block_confirmed_commit_by_preview_id(s):
+ pv=s.preview(r('city.rule.save',{'rule':'test by preview id'},True))
+ cm=s.commit(CommitRequest(request_id='REQ-C-DRY-PID',capability='city.rule.save',preview_id=pv['preview_id'],confirmed=True))
+ assert cm['status']=='committed' and any(x.get('Rule')=='test by preview id' for x in s.storage.read_rows('City_Rules'))
 def test_writes_disabled(s):
  object.__setattr__(settings,'writes_enabled',False);pv=s.preview(r('city.rule.save',{'rule':'test'}));assert c(s,pv,'city.rule.save')['error']['code']=='WRITES_DISABLED';object.__setattr__(settings,'writes_enabled',True)

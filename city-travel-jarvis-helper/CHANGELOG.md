@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.4
+
+- Исправлен ложный `POLICY_REJECTED` после корректного отдельного подтверждения preview.
+- `context.dry_run=true` больше не делает write-preview незаписываемым: endpoint preview и так ничего не меняет.
+- Отдельный `confirmed=true` commit остаётся единственной границей записи.
+- Instructions и OpenAPI явно запрещают трактовать фразу «ничего не записывай» как `dry_run=true`.
+- Добавлены regression-тесты commit по token и preview_id после preview с `dry_run=true`.
+
 ## 1.0.3
 
 - `preview_id` стал основным устойчивым идентификатором commit между сообщениями GPT Actions.
