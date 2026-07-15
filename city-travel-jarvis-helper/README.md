@@ -1,4 +1,4 @@
-# City & Travel Jarvis Helper v1.0.0
+# City & Travel Jarvis Helper v1.0.5
 
 Личный backend для городских решений, поездок, маршрутов и памяти о местах.
 
@@ -106,3 +106,8 @@ Invoke-RestMethod "http://127.0.0.1:8000/health"
 - `WRITES_ENABLED=false` полностью блокирует commit.
 
 Подробная установка: `SETUP-CITY-TRAVEL-JARVIS-v1.0.0.md`.
+
+
+## Drive exports in My Drive
+
+For a personal My Drive folder, keep Google Sheets on the service account and set `GOOGLE_DRIVE_AUTH_MODE=user_oauth`. See `SETUP-DRIVE-OAUTH-v1.0.5.md`. A service account can upload only to a Shared Drive, not to a human user's My Drive.

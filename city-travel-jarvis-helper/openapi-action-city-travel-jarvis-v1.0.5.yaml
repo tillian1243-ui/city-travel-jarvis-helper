@@ -1,0 +1,485 @@
+openapi: 3.1.0
+info:
+  title: City & Travel Jarvis Helper
+  description: Personal city, travel, route and place-memory helper with controlled
+    writes.
+  version: 1.0.5
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      parameters: []
+  /api/setup/validate:
+    get:
+      summary: Validate
+      operationId: validateCitySetup
+      parameters: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/manifest:
+    get:
+      summary: Plugin Manifest
+      operationId: getCityPluginManifest
+      parameters: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/read:
+    post:
+      summary: Read
+      operationId: executeCityReadCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/write/preview:
+    post:
+      summary: Preview
+      operationId: previewCityWriteCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/write/commit:
+    post:
+      summary: Commit
+      operationId: commitCityWriteCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    AttachmentRef:
+      properties:
+        ref:
+          type: string
+          title: Ref
+        name:
+          type: string
+          title: Name
+        mime_type:
+          type: string
+          title: Mime Type
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+        sha256:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sha256
+      type: object
+      required:
+      - ref
+      - name
+      - mime_type
+      title: AttachmentRef
+    CommitRequest:
+      properties:
+        contract_version:
+          type: string
+          const: 0.1.0
+          title: Contract Version
+          default: 0.1.0
+        request_id:
+          type: string
+          maxLength: 160
+          minLength: 4
+          title: Request Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+        capability:
+          type: string
+          maxLength: 120
+          minLength: 3
+          title: Capability
+        commit_token:
+          anyOf:
+          - type: string
+            minLength: 20
+          - type: 'null'
+          description: Optional signed token from the preview response. Prefer preview_id
+            for reliable cross-turn commits.
+        confirmed:
+          type: boolean
+          const: true
+          title: Confirmed
+        preview_id:
+          anyOf:
+          - type: string
+            minLength: 8
+            maxLength: 64
+          - type: 'null'
+          description: Durable one-time preview reference copied from any explicit visible
+            Preview ID. Intervening read requests or chat messages do not invalidate
+            it; the backend alone decides whether it is expired, consumed or missing.
+      type: object
+      required:
+      - request_id
+      - capability
+      - confirmed
+      title: CommitRequest
+      description: Commit the exact stored preview. Provide either preview_id (preferred
+        for GPT Actions across turns) or commit_token.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PluginRequest:
+      properties:
+        contract_version:
+          type: string
+          const: 0.1.0
+          title: Contract Version
+          default: 0.1.0
+        request_id:
+          type: string
+          maxLength: 160
+          minLength: 4
+          title: Request Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+        capability:
+          type: string
+          maxLength: 120
+          minLength: 3
+          title: Capability
+        locale:
+          type: string
+          title: Locale
+          default: ru-RU
+        timezone:
+          type: string
+          title: Timezone
+          default: Europe/Moscow
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+          description: 'Capability-specific payload. For city.experience.record prefer
+            exactly: {"place":{"name":"Bistro22","city":"Москва"},"context":"solo","party":"Andrew","overall_note":"...","ratings":[{"person":"Andrew","overall_rating":9,"would_return":"YES","comment":"..."}],"items":[{"person":"Andrew","name":"Блюдо","type":"dish","comment":"..."}]}.
+            For couple use two separate rating objects for Andrew and Katya.'
+          properties: {}
+        attachments:
+          items:
+            $ref: '#/components/schemas/AttachmentRef'
+          type: array
+          maxItems: 8
+          title: Attachments
+        context:
+          $ref: '#/components/schemas/RequestContext'
+      type: object
+      required:
+      - request_id
+      - capability
+      title: PluginRequest
+    RequestContext:
+      properties:
+        user_intent:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Intent
+        source_plugin_ids:
+          items:
+            type: string
+          type: array
+          title: Source Plugin Ids
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: false
+          description: For read simulations only. For write preview omit this field or keep false. The preview endpoint already writes nothing; a later explicit confirmed commit is the safety boundary.
+      type: object
+      title: RequestContext
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+          properties: {}
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Service health status.
+        version:
+          type: string
+          description: Helper version.
+      required:
+      - status
+      - version
+      additionalProperties: false
+      title: HealthResponse
+    PreviewDetails:
+      type: object
+      properties:
+        preview_id:
+          type: string
+          description: Stable identifier of the exact preview.
+        commit_token:
+          type: string
+          minLength: 20
+          description: Opaque one-time token. Preserve exactly and use on the next
+            separate confirmation; never regenerate it.
+        expires_in_seconds:
+          type: integer
+        digest:
+          type: string
+        write_diff:
+          $ref: '#/components/schemas/GenericObject'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenericObject'
+        requires_separate_confirmation:
+          type: boolean
+        nothing_written:
+          type: boolean
+      required:
+      - preview_id
+      - commit_token
+      - expires_in_seconds
+      - digest
+      - requires_separate_confirmation
+      - nothing_written
+      additionalProperties: true
+      title: PreviewDetails
+    PluginResponse:
+      type: object
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        plugin_id:
+          type: string
+        plugin_version:
+          type: string
+        status:
+          type: string
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+        data:
+          $ref: '#/components/schemas/GenericObject'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenericObject'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenericObject'
+        freshness:
+          anyOf:
+          - $ref: '#/components/schemas/GenericObject'
+          - type: 'null'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenericObject'
+        preview:
+          anyOf:
+          - $ref: '#/components/schemas/PreviewDetails'
+          - type: 'null'
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/GenericObject'
+          - type: 'null'
+        preview_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Top-level durable preview reference. Always include it in the
+            visible preview response and use it on the next separate confirmation.
+        capability:
+          anyOf:
+          - type: string
+          - type: 'null'
+        commit_token:
+          anyOf:
+          - type: string
+            minLength: 20
+          - type: 'null'
+          description: Optional signed token. Do not rely on hidden cross-turn retention;
+            preview_id is the preferred commit reference.
+        expires_in_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        confirmation:
+          anyOf:
+          - type: object
+            properties:
+              preview_id:
+                type: string
+              capability:
+                type: string
+              confirmed:
+                type: boolean
+                const: true
+              instruction:
+                type: string
+            required:
+            - preview_id
+            - capability
+            - confirmed
+            - instruction
+            additionalProperties: false
+          - type: 'null'
+          description: Visible cross-turn commit reference. Show preview_id to the
+            user and copy the exact explicit PRE-... into commitCityWriteCapability
+            after a separate confirmation. Intervening read messages are allowed.
+      required:
+      - contract_version
+      - request_id
+      - plugin_id
+      - plugin_version
+      - status
+      - data
+      - warnings
+      - sources
+      - questions
+      additionalProperties: true
+      title: PluginResponse
+    GenericObject:
+      type: object
+      properties: {}
+      additionalProperties: true
+      title: GenericObject
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+servers:
+- url: https://fearless-friendship-production-1929.up.railway.app
+  description: City & Travel Jarvis Helper on Railway

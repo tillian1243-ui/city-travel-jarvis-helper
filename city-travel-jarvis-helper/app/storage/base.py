@@ -1,16 +1,35 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+
 class Storage(ABC):
     @abstractmethod
     def read_rows(self, sheet: str) -> list[dict[str, Any]]: ...
+
     @abstractmethod
     def append_rows(self, sheet: str, rows: list[dict[str, Any]]) -> int: ...
+
     @abstractmethod
     def append_many(self, batches: dict[str, list[dict[str, Any]]]) -> dict[str, int]: ...
+
     @abstractmethod
     def replace_rows(self, sheet: str, rows: list[dict[str, Any]]) -> int: ...
+
     @abstractmethod
-    def update_matching_rows(self, sheet: str, key: str, value: object, updates: dict[str, object]) -> int: ...
-    def upload_file(self, name: str, mime_type: str, content: bytes) -> str: raise RuntimeError("Google Drive export is not configured")
-    def drive_ready(self) -> bool: return False
+    def update_matching_rows(
+        self, sheet: str, key: str, value: object, updates: dict[str, object]
+    ) -> int: ...
+
+    def upload_file(self, name: str, mime_type: str, content: bytes) -> str:
+        raise RuntimeError("Google Drive export is not configured")
+
+    def drive_status(self) -> dict[str, Any]:
+        return {
+            "ready": False,
+            "auth_mode": "not_configured",
+            "code": "DRIVE_NOT_CONFIGURED",
+            "detail": "Google Drive export is not configured",
+        }
+
+    def drive_ready(self) -> bool:
+        return bool(self.drive_status().get("ready"))

@@ -94,3 +94,26 @@ def test_write_preview_dry_run_flag_does_not_block_confirmed_commit_by_preview_i
  assert cm['status']=='committed' and any(x.get('Rule')=='test by preview id' for x in s.storage.read_rows('City_Rules'))
 def test_writes_disabled(s):
  object.__setattr__(settings,'writes_enabled',False);pv=s.preview(r('city.rule.save',{'rule':'test'}));assert c(s,pv,'city.rule.save')['error']['code']=='WRITES_DISABLED';object.__setattr__(settings,'writes_enabled',True)
+
+
+class BrokenDriveStorage(MemoryStorage):
+ def upload_file(self,name,mime_type,content):
+  raise RuntimeError('DRIVE_SERVICE_ACCOUNT_MY_DRIVE_UNSUPPORTED: The folder is in My Drive')
+
+def test_setup_reports_drive_details(s):
+ out=s.validate_setup()
+ assert out['ready'] and out['exports_ready'] and out['drive']['auth_mode']=='memory'
+
+def test_export_commit_returns_structured_drive_error_without_consuming_preview():
+ object.__setattr__(settings,'writes_enabled',True)
+ service=CityService(BrokenDriveStorage(memory_seed()))
+ route_preview=service.preview(r('city.route.save',{'title':'Loop','points':[{'name':'A','latitude':55.75,'longitude':37.6},{'name':'B','latitude':55.76,'longitude':37.62}]}))
+ route_commit=service.commit(CommitRequest(request_id='REQ-ROUTE-C',capability='city.route.save',preview_id=route_preview['preview_id'],confirmed=True))
+ rid=route_commit['data']['entity_ids']['route_id']
+ export_preview=service.preview(r('city.route.export',{'route_id':rid,'formats':['gpx']}))
+ first=service.commit(CommitRequest(request_id='REQ-EXP-C1',capability='city.route.export',preview_id=export_preview['preview_id'],confirmed=True))
+ second=service.commit(CommitRequest(request_id='REQ-EXP-C2',capability='city.route.export',preview_id=export_preview['preview_id'],confirmed=True))
+ assert first['status']=='error'
+ assert first['error']['code']=='DRIVE_SERVICE_ACCOUNT_MY_DRIVE_UNSUPPORTED'
+ assert first['error']['retryable'] is False
+ assert second['status']=='error'

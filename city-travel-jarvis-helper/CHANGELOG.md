@@ -37,3 +37,10 @@
 
 ## 1.0.0
 - Первый полный релиз City & Travel Jarvis.
+
+## 1.0.5
+
+- Added user OAuth mode for Drive exports while retaining service-account Sheets access.
+- Added Drive folder/auth validation and Shared Drive support.
+- Added structured Drive commit errors instead of unhandled HTTP 500 responses.
+- Added local OAuth setup script using the non-sensitive `drive.file` scope.

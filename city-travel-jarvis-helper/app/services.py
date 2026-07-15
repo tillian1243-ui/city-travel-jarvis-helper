@@ -1,8 +1,13 @@
 import base64
+import json
 import logging
 from datetime import datetime,timedelta,timezone
 from typing import Any
 from fastapi import HTTPException
+try:
+ from googleapiclient.errors import HttpError
+except ImportError:
+ class HttpError(Exception):pass
 from app import __version__
 from app.manifest import CAPABILITY_MAP,READ_CAPABILITIES,WRITE_CAPABILITIES,manifest
 from app.maturity import update_metrics
@@ -26,7 +31,9 @@ class CityService:
   for sheet in REQUIRED_SHEETS:
    try:self.storage.read_rows(sheet);checks.append({'sheet':sheet,'status':'ok','detail':'accessible'})
    except Exception as e:checks.append({'sheet':sheet,'status':'error','detail':str(e)})
-  ready=all(x['status']=='ok' for x in checks);return {'ready':ready,'sheets_ready':ready,'exports_ready':self.storage.drive_ready(),'writes_enabled':settings.writes_enabled,'storage_mode':settings.storage_mode,'version':__version__,'checks':checks}
+  sheets_ready=all(x['status']=='ok' for x in checks)
+  drive=self.storage.drive_status()
+  return {'ready':sheets_ready and bool(drive.get('ready')),'sheets_ready':sheets_ready,'exports_ready':bool(drive.get('ready')),'drive':drive,'writes_enabled':settings.writes_enabled,'storage_mode':settings.storage_mode,'version':__version__,'checks':checks}
  def read(self,request):
   if request.capability not in READ_IDS:return self.response(request.request_id,'error',error={'code':'CAPABILITY_NOT_FOUND','retryable':False})
   try:
@@ -67,8 +74,31 @@ class CityService:
    stored=preview_store.get(pid)
    plan=stored.get('plan',{})
    if plan.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'PREVIEW_CAPABILITY_MISMATCH','retryable':False})
-  result=self._apply(stored['plan'],pid,stored['digest']);preview_store.consume(pid)
+  try:
+   result=self._apply(stored['plan'],pid,stored['digest'])
+  except Exception as e:
+   logger.exception('Write commit failed for capability %s preview %s',request.capability,pid)
+   err=self._commit_error(e)
+   return self.response(request.request_id,'error',summary=err['message'],error=err,warnings=stored['plan'].get('warnings',[]),sources=stored['plan'].get('sources',[]))
+  preview_store.consume(pid)
   return self.response(request.request_id,'committed',summary=stored['plan']['summary'],data=result,warnings=stored['plan'].get('warnings',[]),sources=stored['plan'].get('sources',[]))
+ def _commit_error(self,e):
+  message=str(e);reason='';status=None
+  if isinstance(e,HttpError):
+   status=getattr(getattr(e,'resp',None),'status',None)
+   try:
+    raw=e.content.decode('utf-8','replace') if isinstance(e.content,bytes) else str(e.content)
+    payload=json.loads(raw);message=payload.get('error',{}).get('message') or message
+    errors=payload.get('error',{}).get('errors') or []
+    reason=str(errors[0].get('reason','')) if errors else ''
+   except Exception:pass
+  low=(reason+' '+message).lower()
+  if 'storagequotaexceeded' in low or 'service accounts do not have storage quota' in low:return {'code':'DRIVE_SERVICE_ACCOUNT_NO_QUOTA','message':'Service account cannot upload to My Drive. Configure Drive user OAuth or a Shared Drive.','detail':message,'http_status':status,'retryable':False}
+  if 'accessnotconfigured' in low or 'has not been used' in low:return {'code':'DRIVE_API_DISABLED','message':'Google Drive API is disabled for the credential project.','detail':message,'http_status':status,'retryable':False}
+  if 'invalid_grant' in low:return {'code':'DRIVE_OAUTH_REFRESH_TOKEN_INVALID','message':'Drive OAuth refresh token is invalid or expired. Re-authorize Drive access.','detail':message,'http_status':status,'retryable':False}
+  if 'insufficientfilepermissions' in low or 'not found' in low or 'file not found' in low:return {'code':'DRIVE_FOLDER_ACCESS_DENIED','message':'Drive export folder is missing or not writable for the configured identity.','detail':message,'http_status':status,'retryable':False}
+  if 'drive_service_account_my_drive_unsupported' in low:return {'code':'DRIVE_SERVICE_ACCOUNT_MY_DRIVE_UNSUPPORTED','message':'The export folder is in My Drive, but Drive is configured with a service account. Use user OAuth or a Shared Drive.','detail':message,'retryable':False}
+  return {'code':'COMMIT_FAILED','message':'Commit failed before confirmation of a successful write. Check setup validation and Railway logs.','detail':message,'exception_type':type(e).__name__,'http_status':status,'retryable':True}
 
  # READ
  def _read(self,cap,p):
