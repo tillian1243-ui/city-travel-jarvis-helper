@@ -37,13 +37,44 @@ def test_experience_accepts_string_place(s):
  pv=s.preview(r('city.experience.record',{'place':'Bistro22','city':'Москва','context':'solo','ratings':{'person':'Andrew','rating':9,'wouldReturn':'YES'},'items':'Куриная грудка с трюфельным соусом и полбой'}));assert pv['status']=='preview_ready';plan=s.storage.read_rows('Places');assert plan==[]
 
 def test_experience_accepts_named_rating_map(s):
- pv=s.preview(r('city.experience.record',{'place':'Тестовое место','context':'couple','ratings':{'Andrew':{'score':8,'would_return':'YES'},'Katya':{'score':6,'would_return':'MAYBE'}}}));assert pv['status']=='preview_ready' and len(pv['preview']['write_diff']['ratings'])==2
+ pv=s.preview(r('city.experience.record',{'place':'Тестовое место','city':'Москва','context':'couple','ratings':{'Andrew':{'score':8,'would_return':'YES'},'Katya':{'score':6,'would_return':'MAYBE'}}}));assert pv['status']=='preview_ready' and len(pv['preview']['write_diff']['ratings'])==2
 
 def test_experience_rejects_bad_shape_without_http_500(s):
  out=s.preview(r('city.experience.record',{'place':123,'ratings':['bad']}));assert out['status']=='needs_input' and out['error']['code']=='INVALID_REQUEST'
 
 def test_solo_rejects_katya_rating(s):
  out=s.preview(r('city.experience.record',{'place':'Cafe','context':'solo','ratings':[{'person':'Katya','overall_rating':8,'would_return':'YES'}]}));assert out['status']=='needs_input'
+
+
+def test_commit_by_preview_id_survives_cross_turn_without_token(s):
+ pv=s.preview(r('city.experience.record',{'place':'Bistro22','city':'Санкт-Петербург','context':'solo','ratings':[{'person':'Andrew','overall_rating':9,'would_return':'YES','comment':'Понравилась куриная грудка с трюфельным соусом и полбой.'}],'items':['Куриная грудка с трюфельным соусом и полбой']}))
+ cm=s.commit(CommitRequest(request_id='REQ-C-PID',capability='city.experience.record',preview_id=pv['preview_id'],confirmed=True))
+ assert cm['status']=='committed' and len(s.storage.read_rows('Place_Experiences'))==1
+
+def test_preview_exposes_visible_confirmation_reference(s):
+ pv=s.preview(r('city.rule.save',{'rule':'test'}))
+ assert pv['confirmation']['preview_id']==pv['preview_id']
+ assert pv['data']['confirmation']['preview_id']==pv['preview_id']
+ assert pv['preview_id'] in pv['summary']
+
+def test_experience_does_not_invent_visit_date(s):
+ pv=s.preview(r('city.experience.record',{'place':'Bistro22','city':'Санкт-Петербург','context':'solo','ratings':[{'person':'Andrew','overall_rating':9,'would_return':'YES','comment':'Понравилась куриная грудка.'}]}))
+ assert pv['preview']['write_diff']['experience']['VisitDate']==''
+
+def test_preview_id_is_capability_bound(s):
+ pv=s.preview(r('city.rule.save',{'rule':'test'}))
+ out=s.commit(CommitRequest(request_id='REQ-C-WRONG',capability='city.place.save',preview_id=pv['preview_id'],confirmed=True))
+ assert out['status']=='rejected' and out['error']['code']=='PREVIEW_CAPABILITY_MISMATCH'
+
+
+def test_experience_does_not_default_unknown_city_to_moscow(s):
+ out=s.preview(r('city.experience.record',{'place':'Неизвестное место','context':'solo','ratings':[{'person':'Andrew','overall_rating':8,'would_return':'YES','comment':'Нормально'}]}))
+ assert out['status']=='needs_input' and 'реальный city' in out['summary']
+
+def test_experience_resolves_unique_saved_place_without_city(s):
+ s.storage.append_rows('Places',[{'PlaceID':'PLC-SPB','Name':'Bistro22','City':'Санкт-Петербург','Status':'VISITED'}])
+ pv=s.preview(r('city.experience.record',{'place':'Bistro22','context':'solo','ratings':[{'person':'Andrew','overall_rating':9,'would_return':'YES','comment':'Понравилось'}]}))
+ assert pv['status']=='preview_ready' and pv['preview']['write_diff']['experience']['PlaceID']=='PLC-SPB'
 
 def test_trip_save_get(s):
  pv=s.preview(r('city.trip.save',{'title':'SPb','city':'Санкт-Петербург','days':[{'date':'2026-07-15','items':[{'title':'Coffee','start_time':'10:00'}]}]}));cm=c(s,pv,'city.trip.save');tid=cm['data']['entity_ids']['trip_id'];assert s.read(r('city.trip.get',{'trip_id':tid}))['data']['trip']['Title']=='SPb'

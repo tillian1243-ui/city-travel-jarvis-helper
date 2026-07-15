@@ -44,20 +44,28 @@ class CityService:
   plan.update(capability=request.capability,dry_run=request.context.dry_run,created_at=now_iso());dg=digest(plan);pid=preview_store.put({'plan':plan,'digest':dg})
   token=create_token({'action':'city_write','preview_id':pid,'capability':request.capability,'digest':dg,'dry_run':request.context.dry_run})
   pv={'preview_id':pid,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds,'digest':dg,'write_diff':plan.get('diff',{}),'warnings':plan.get('warnings',[]),'requires_separate_confirmation':True,'nothing_written':True}
-  response=self.response(request.request_id,'preview_ready',summary=plan['summary'],data={'entity_ids':plan.get('entity_ids',{})},warnings=plan.get('warnings',[]),sources=plan.get('sources',[]),preview=pv)
-  # Duplicate the opaque commit state at the top level for GPT Actions reliability.
-  # The nested preview object remains the canonical contract representation.
-  response.update({'preview_id':pid,'capability':request.capability,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds})
+  confirmation={'preview_id':pid,'capability':request.capability,'confirmed':True,'instruction':f'На отдельное подтверждение вызови commitCityWriteCapability с preview_id={pid}, capability={request.capability}, confirmed=true. commit_token можно не передавать.'}
+  summary=f"{plan['summary']}. Preview ID: {pid}."
+  response=self.response(request.request_id,'preview_ready',summary=summary,data={'entity_ids':plan.get('entity_ids',{}),'confirmation':confirmation},warnings=plan.get('warnings',[]),sources=plan.get('sources',[]),preview=pv)
+  # commit_token remains supported, but preview_id is the durable cross-turn reference.
+  response.update({'preview_id':pid,'capability':request.capability,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds,'confirmation':confirmation})
   return response
  def commit(self,request):
   if request.capability not in WRITE_IDS:return self.response(request.request_id,'error',error={'code':'CAPABILITY_NOT_FOUND','retryable':False})
   if not settings.writes_enabled:return self.response(request.request_id,'rejected',summary='Writes are disabled',error={'code':'WRITES_DISABLED','retryable':False})
-  token=read_token(request.commit_token,'city_write')
-  if token.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'COMMIT_TOKEN_INVALID','retryable':False})
-  if token.get('dry_run'):return self.response(request.request_id,'rejected',error={'code':'POLICY_REJECTED','retryable':False})
-  stored=preview_store.get(token['preview_id'])
-  if stored['digest']!=token['digest']:raise HTTPException(400,'Preview digest mismatch')
-  result=self._apply(stored['plan'],token['preview_id'],stored['digest']);preview_store.consume(token['preview_id'])
+  if request.commit_token:
+   token=read_token(request.commit_token,'city_write')
+   if token.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'COMMIT_TOKEN_INVALID','retryable':False})
+   if token.get('dry_run'):return self.response(request.request_id,'rejected',error={'code':'POLICY_REJECTED','retryable':False})
+   pid=token['preview_id'];stored=preview_store.get(pid)
+   if stored['digest']!=token['digest']:raise HTTPException(400,'Preview digest mismatch')
+  else:
+   pid=str(request.preview_id or '')
+   stored=preview_store.get(pid)
+   plan=stored.get('plan',{})
+   if plan.get('capability')!=request.capability:return self.response(request.request_id,'rejected',error={'code':'PREVIEW_CAPABILITY_MISMATCH','retryable':False})
+   if plan.get('dry_run'):return self.response(request.request_id,'rejected',error={'code':'POLICY_REJECTED','retryable':False})
+  result=self._apply(stored['plan'],pid,stored['digest']);preview_store.consume(pid)
   return self.response(request.request_id,'committed',summary=stored['plan']['summary'],data=result,warnings=stored['plan'].get('warnings',[]),sources=stored['plan'].get('sources',[]))
 
  # READ
@@ -211,11 +219,11 @@ class CityService:
  def normalize_experience_payload(self,p):
   if not isinstance(p,dict):raise ValueError('payload для city.experience.record должен быть объектом')
   out=dict(p);raw_place=out.get('place')
-  if isinstance(raw_place,str):place={'name':raw_place.strip(),'city':out.get('city') or settings.home_city}
+  if isinstance(raw_place,str):place={'name':raw_place.strip(),'city':out.get('city') or ''}
   elif isinstance(raw_place,dict):place=dict(raw_place)
-  elif raw_place is None:place={'name':out.get('place_name') or out.get('name') or '','city':out.get('city') or settings.home_city}
+  elif raw_place is None:place={'name':out.get('place_name') or out.get('name') or '','city':out.get('city') or ''}
   else:raise ValueError('place должен быть строкой с названием или объектом {name, city}')
-  if place.get('name') and not place.get('city'):place['city']=out.get('city') or settings.home_city
+  if place.get('name') and not place.get('city'):place['city']=out.get('city') or ''
   out['place']=place
 
   raw_ratings=out.get('ratings',[])
@@ -261,12 +269,16 @@ class CityService:
   elif context=='couple':out['party']='Andrew, Katya'
   return out
  def plan_experience(self,p):
-  p=self.normalize_experience_payload(p);placep=p.get('place') or {};pid=str(p.get('place_id') or placep.get('place_id') or '');place=self.find_place(pid,placep.get('name',''),placep.get('city',''));append={};updates=[];now=now_iso()
+  p=self.normalize_experience_payload(p);placep=p.get('place') or {};pid=str(p.get('place_id') or placep.get('place_id') or '');name=placep.get('name','');city=placep.get('city','');place=self.find_place(pid,name,city) if (pid or city) else None;append={};updates=[];now=now_iso()
+  if not place and name and not city:
+   matches=[x for x in self.storage.read_rows('Places') if norm(x.get('Name'))==norm(name)]
+   if len(matches)==1:place=matches[0];pid=str(place['PlaceID']);placep['city']=place.get('City','')
+   elif len(matches)>1:raise ValueError('Найдено несколько мест с таким названием. Укажите city или place_id')
   if not place:
-   if not placep.get('name') or not placep.get('city'):raise ValueError('Нужно place_id или place.name и place.city')
+   if not name or not placep.get('city'):raise ValueError('Для нового впечатления нужны place.name и реальный city; не подставляйте домашний город автоматически')
    pid=new_id('PLC');place={'PlaceID':pid,'Name':placep['name'],'Type':placep.get('type','OTHER'),'City':placep['city'],'Address':placep.get('address',''),'Latitude':placep.get('latitude',''),'Longitude':placep.get('longitude',''),'Website':placep.get('website',''),'Status':'VISITED','PriceLevel':placep.get('price_level',''),'LastCheckedAt':placep.get('checked_at',''),'SourceURL':placep.get('source_url',''),'SourceType':'user','Confidence':'high','CreatedAt':now,'UpdatedAt':now};append['Places']=[place]
   else:pid=str(place['PlaceID']);updates.append({'sheet':'Places','key':'PlaceID','value':pid,'updates':{'Status':'VISITED','UpdatedAt':now}})
-  eid=new_id('EXP');exp={'ExperienceID':eid,'PlaceID':pid,'VisitDate':p.get('visit_date',now[:10]),'Context':p.get('context','solo'),'Party':p.get('party','Andrew' if p.get('context','solo')=='solo' else 'Andrew, Katya'),'TripID':p.get('trip_id',''),'SpendAmount':p.get('spend_amount',''),'Currency':p.get('currency','RUB'),'OverallNote':p.get('overall_note',''),'CreatedAt':now};append['Place_Experiences']=[exp]
+  eid=new_id('EXP');exp={'ExperienceID':eid,'PlaceID':pid,'VisitDate':p.get('visit_date',''),'Context':p.get('context','solo'),'Party':p.get('party','Andrew' if p.get('context','solo')=='solo' else 'Andrew, Katya'),'TripID':p.get('trip_id',''),'SpendAmount':p.get('spend_amount',''),'Currency':p.get('currency','RUB'),'OverallNote':p.get('overall_note',''),'CreatedAt':now};append['Place_Experiences']=[exp]
   ratings=[]
   for r in p.get('ratings',[]):ratings.append({'RatingID':new_id('RAT'),'ExperienceID':eid,'PersonID':r.get('person_id') or self.person_id(r.get('person','Andrew')),'OverallRating':r.get('overall_rating',''),'WouldReturn':str(r.get('would_return','MAYBE')).upper(),'FoodRating':r.get('food_rating',''),'AtmosphereRating':r.get('atmosphere_rating',''),'ServiceRating':r.get('service_rating',''),'ValueRating':r.get('value_rating',''),'BestPart':r.get('best_part',''),'WorstPart':r.get('worst_part',''),'Comment':r.get('comment',''),'CreatedAt':now})
   if not ratings:raise ValueError('Нужна хотя бы одна оценка в ratings')
