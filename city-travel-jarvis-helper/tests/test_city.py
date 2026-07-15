@@ -32,6 +32,19 @@ def test_solo_experience(s):
  pv=s.preview(r('city.experience.record',{'place':{'name':'Cafe','city':'Москва'},'context':'solo','ratings':[{'person':'Andrew','overall_rating':8,'would_return':'YES'}]}));c(s,pv,'city.experience.record');assert s.storage.read_rows('Experience_Ratings')[0]['PersonID']=='P-ANDREW'
 def test_couple_verdict(s):
  pv=s.preview(r('city.experience.record',{'place':{'name':'Cafe','city':'Москва'},'context':'couple','ratings':[{'person':'Andrew','overall_rating':9,'would_return':'YES'},{'person':'Katya','overall_rating':8,'would_return':'YES'}]}));c(s,pv,'city.experience.record');assert s.read(r('city.experience.summary'))['data']['experiences'][0]['couple_verdict']=='Оба любим'
+
+def test_experience_accepts_string_place(s):
+ pv=s.preview(r('city.experience.record',{'place':'Bistro22','city':'Москва','context':'solo','ratings':{'person':'Andrew','rating':9,'wouldReturn':'YES'},'items':'Куриная грудка с трюфельным соусом и полбой'}));assert pv['status']=='preview_ready';plan=s.storage.read_rows('Places');assert plan==[]
+
+def test_experience_accepts_named_rating_map(s):
+ pv=s.preview(r('city.experience.record',{'place':'Тестовое место','context':'couple','ratings':{'Andrew':{'score':8,'would_return':'YES'},'Katya':{'score':6,'would_return':'MAYBE'}}}));assert pv['status']=='preview_ready' and len(pv['preview']['write_diff']['ratings'])==2
+
+def test_experience_rejects_bad_shape_without_http_500(s):
+ out=s.preview(r('city.experience.record',{'place':123,'ratings':['bad']}));assert out['status']=='needs_input' and out['error']['code']=='INVALID_REQUEST'
+
+def test_solo_rejects_katya_rating(s):
+ out=s.preview(r('city.experience.record',{'place':'Cafe','context':'solo','ratings':[{'person':'Katya','overall_rating':8,'would_return':'YES'}]}));assert out['status']=='needs_input'
+
 def test_trip_save_get(s):
  pv=s.preview(r('city.trip.save',{'title':'SPb','city':'Санкт-Петербург','days':[{'date':'2026-07-15','items':[{'title':'Coffee','start_time':'10:00'}]}]}));cm=c(s,pv,'city.trip.save');tid=cm['data']['entity_ids']['trip_id'];assert s.read(r('city.trip.get',{'trip_id':tid}))['data']['trip']['Title']=='SPb'
 def test_route_export(s):

@@ -1,4 +1,5 @@
 import base64
+import logging
 from datetime import datetime,timedelta,timezone
 from typing import Any
 from fastapi import HTTPException
@@ -13,6 +14,7 @@ from app.sheets import REQUIRED_SHEETS
 from app.token_service import create_token,read_token
 from app.utils import now_iso,new_id,digest,norm,num,haversine
 READ_IDS={x['id'] for x in READ_CAPABILITIES};WRITE_IDS={x['id'] for x in WRITE_CAPABILITIES}
+logger=logging.getLogger(__name__)
 
 class CityService:
  def __init__(self,storage):self.storage=storage
@@ -35,7 +37,10 @@ class CityService:
  def preview(self,request):
   if request.capability not in WRITE_IDS:return self.response(request.request_id,'error',error={'code':'CAPABILITY_NOT_FOUND','retryable':False})
   try:plan=self._plan(request.capability,request.payload)
-  except ValueError as e:return self.response(request.request_id,'needs_input',summary=str(e),questions=[{'id':'missing_input','question':str(e)}],error={'code':'INVALID_REQUEST','retryable':False})
+  except (ValueError,TypeError,AttributeError) as e:return self.response(request.request_id,'needs_input',summary=str(e),questions=[{'id':'invalid_payload','question':str(e)}],error={'code':'INVALID_REQUEST','message':str(e),'retryable':False})
+  except Exception as e:
+   logger.exception('Write preview failed for capability %s',request.capability)
+   return self.response(request.request_id,'error',summary='Не удалось подготовить preview',error={'code':'INTERNAL_ERROR','message':'Внутренняя ошибка City Helper. Проверьте Railway logs по request_id.','exception_type':type(e).__name__,'retryable':True})
   plan.update(capability=request.capability,dry_run=request.context.dry_run,created_at=now_iso());dg=digest(plan);pid=preview_store.put({'plan':plan,'digest':dg})
   token=create_token({'action':'city_write','preview_id':pid,'capability':request.capability,'digest':dg,'dry_run':request.context.dry_run})
   pv={'preview_id':pid,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds,'digest':dg,'write_diff':plan.get('diff',{}),'warnings':plan.get('warnings',[]),'requires_separate_confirmation':True,'nothing_written':True}
@@ -203,8 +208,60 @@ class CityService:
   if old:
    pid=str(old['PlaceID']);return self.plan(f'Обновить место {name}',{'place_id':pid},updates=[{'sheet':'Places','key':'PlaceID','value':pid,'updates':fields}],diff={'before':old,'after':{**old,**fields}},sources=self.sources([p]))
   pid=new_id('PLC');row={'PlaceID':pid,**fields,'CreatedAt':now};return self.plan(f'Сохранить место {name}',{'place_id':pid},append={'Places':[row]},diff={'place':row},sources=self.sources([p]))
+ def normalize_experience_payload(self,p):
+  if not isinstance(p,dict):raise ValueError('payload для city.experience.record должен быть объектом')
+  out=dict(p);raw_place=out.get('place')
+  if isinstance(raw_place,str):place={'name':raw_place.strip(),'city':out.get('city') or settings.home_city}
+  elif isinstance(raw_place,dict):place=dict(raw_place)
+  elif raw_place is None:place={'name':out.get('place_name') or out.get('name') or '','city':out.get('city') or settings.home_city}
+  else:raise ValueError('place должен быть строкой с названием или объектом {name, city}')
+  if place.get('name') and not place.get('city'):place['city']=out.get('city') or settings.home_city
+  out['place']=place
+
+  raw_ratings=out.get('ratings',[])
+  if isinstance(raw_ratings,dict):
+   named=[]
+   for key,value in raw_ratings.items():
+    if norm(key) in {'andrew','andrey','андрей','katya','kate','катя'} and isinstance(value,dict):named.append({'person':key,**value})
+   raw_ratings=named or [raw_ratings]
+  if not isinstance(raw_ratings,list):raise ValueError('ratings должен быть массивом оценок или объектом оценки')
+  ratings=[]
+  for raw in raw_ratings:
+   if not isinstance(raw,dict):raise ValueError('Каждая оценка в ratings должна быть объектом')
+   r=dict(raw)
+   if 'overall_rating' not in r:r['overall_rating']=r.get('rating',r.get('score',''))
+   if 'would_return' not in r:r['would_return']=r.get('wouldReturn',r.get('return_intent','MAYBE'))
+   if 'person' not in r:r['person']=r.get('name','Andrew')
+   try:score=float(r.get('overall_rating'))
+   except (TypeError,ValueError):raise ValueError('overall_rating должен быть числом от 1 до 10')
+   if not 1<=score<=10:raise ValueError('overall_rating должен быть в диапазоне 1–10')
+   r['overall_rating']=int(score) if score.is_integer() else score
+   wr=str(r.get('would_return','MAYBE')).upper()
+   if wr not in {'YES','MAYBE','NO'}:raise ValueError('would_return должен быть YES, MAYBE или NO')
+   r['would_return']=wr;ratings.append(r)
+  out['ratings']=ratings
+
+  raw_items=out.get('items',[])
+  if isinstance(raw_items,(str,dict)):raw_items=[raw_items]
+  if not isinstance(raw_items,list):raise ValueError('items должен быть массивом блюд/позиций')
+  items=[]
+  for raw in raw_items:
+   if isinstance(raw,str):i={'name':raw}
+   elif isinstance(raw,dict):i=dict(raw)
+   else:raise ValueError('Каждый элемент items должен быть строкой или объектом')
+   if 'name' not in i:i['name']=i.get('item_name',i.get('title',''))
+   if 'would_order_again' not in i and 'wouldOrderAgain' in i:i['would_order_again']=i['wouldOrderAgain']
+   items.append(i)
+  out['items']=items
+
+  context=str(out.get('context','solo')).lower();out['context']=context
+  if context=='solo':
+   out['party']='Andrew'
+   if any(self.person_id(r.get('person','Andrew'))=='P-KATYA' for r in ratings):raise ValueError('Для solo-визита нельзя добавлять оценку Katya')
+  elif context=='couple':out['party']='Andrew, Katya'
+  return out
  def plan_experience(self,p):
-  placep=p.get('place') or {};pid=str(p.get('place_id') or placep.get('place_id') or '');place=self.find_place(pid,placep.get('name',''),placep.get('city',''));append={};updates=[];now=now_iso()
+  p=self.normalize_experience_payload(p);placep=p.get('place') or {};pid=str(p.get('place_id') or placep.get('place_id') or '');place=self.find_place(pid,placep.get('name',''),placep.get('city',''));append={};updates=[];now=now_iso()
   if not place:
    if not placep.get('name') or not placep.get('city'):raise ValueError('Нужно place_id или place.name и place.city')
    pid=new_id('PLC');place={'PlaceID':pid,'Name':placep['name'],'Type':placep.get('type','OTHER'),'City':placep['city'],'Address':placep.get('address',''),'Latitude':placep.get('latitude',''),'Longitude':placep.get('longitude',''),'Website':placep.get('website',''),'Status':'VISITED','PriceLevel':placep.get('price_level',''),'LastCheckedAt':placep.get('checked_at',''),'SourceURL':placep.get('source_url',''),'SourceType':'user','Confidence':'high','CreatedAt':now,'UpdatedAt':now};append['Places']=[place]
