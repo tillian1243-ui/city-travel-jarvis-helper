@@ -1,0 +1,1 @@
+REQUIRED_SHEETS = ["People","Places","Place_Experiences","Experience_Ratings","Experience_Items","Place_Signals","City_Preferences","Cycling_Profiles","Trips","Trip_Days","Itinerary_Items","Routes","Route_Points","Events","City_Rules","Trip_Journal","Capability_Maturity","Maturity_Test_Log","Search_History","Write_Log","Data_Quality","City_Config"]

@@ -1,0 +1,512 @@
+{
+  "contract_version": "0.1.0",
+  "plugin_id": "city-travel-jarvis",
+  "domain": "city",
+  "name": "City & Travel Jarvis",
+  "version": "1.0.0",
+  "description": "Personal city, travel, route and place-memory plugin with live-source ranking and controlled writes.",
+  "capabilities": [
+    {
+      "id": "city.cockpit",
+      "title": "City cockpit",
+      "mode": "read",
+      "description": "Places, trips, routes and maturity overview.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.place.search",
+      "title": "Rank live place candidates",
+      "mode": "read",
+      "description": "Ranks web-researched candidates using situation and personal memory.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.place.list",
+      "title": "List saved places",
+      "mode": "read",
+      "description": "Lists saved, visited, liked, closed or recheck-needed places.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.experience.summary",
+      "title": "Place experience ratings",
+      "mode": "read",
+      "description": "Shows solo and couple ratings, return intent and dish impressions.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.trip.plan",
+      "title": "Validate trip plan",
+      "mode": "read",
+      "description": "Checks a day or multi-day itinerary without saving it.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.trip.get",
+      "title": "Get saved trip",
+      "mode": "read",
+      "description": "Returns a saved trip, days and itinerary items.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.trip.next",
+      "title": "What next",
+      "mode": "read",
+      "description": "Selects the next feasible itinerary block and fallback options.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.walking",
+      "title": "Walking route review",
+      "mode": "read",
+      "description": "Evaluates walking route distance, time and constraints.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.cycling",
+      "title": "Cycling route review",
+      "mode": "read",
+      "description": "Evaluates pace, risks, bailout points and novelty.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.photowalk",
+      "title": "Photowalk route review",
+      "mode": "read",
+      "description": "Evaluates light, visual fit and timing.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.literary",
+      "title": "Literary and historical route review",
+      "mode": "read",
+      "description": "Separates facts, book locations and hypotheses.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.get",
+      "title": "Get saved route",
+      "mode": "read",
+      "description": "Returns a route with points and export links.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.event.rank",
+      "title": "Rank current events",
+      "mode": "read",
+      "description": "Ranks web-researched events by relevance and logistics.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:advisory",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.area.compare",
+      "title": "Compare stay areas",
+      "mode": "read",
+      "description": "Scores neighborhoods for transport, food, noise, cost and plan fit.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.weather.adapt",
+      "title": "Adapt plan to weather",
+      "mode": "read",
+      "description": "Produces rain, heat, wind and fatigue fallbacks from supplied forecast.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:advisory",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.logistics.departure",
+      "title": "Departure time calculator",
+      "mode": "read",
+      "description": "Calculates realistic leave time with luggage and buffers.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.maturity.status",
+      "title": "Capability maturity",
+      "mode": "read",
+      "description": "Returns maturity levels, real tests and promotion recommendations.",
+      "risk": "low",
+      "requires_confirmation": false,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.place.save",
+      "title": "Save or update place",
+      "mode": "write_preview",
+      "description": "Previews saving a place and freshness metadata.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.place.status",
+      "title": "Update place status",
+      "mode": "write_preview",
+      "description": "Previews VISITED, FAVORITE, CLOSED or RECHECK_NEEDED.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.place.preference",
+      "title": "Save place signal",
+      "mode": "write_preview",
+      "description": "Previews liked, expensive solo or good after gym signals.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.experience.record",
+      "title": "Record visit and ratings",
+      "mode": "write_preview",
+      "description": "Previews solo/couple visit, ratings, return intent and dishes.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.trip.save",
+      "title": "Save trip and itinerary",
+      "mode": "write_preview",
+      "description": "Previews trip, days and itinerary items.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.trip.update",
+      "title": "Update active trip",
+      "mode": "write_preview",
+      "description": "Previews rescheduling or status changes.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.save",
+      "title": "Save route",
+      "mode": "write_preview",
+      "description": "Previews route and ordered points.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.route.export",
+      "title": "Export route or guide",
+      "mode": "write_preview",
+      "description": "Previews GPX, KML and PDF export to Google Drive.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.event.save",
+      "title": "Save event",
+      "mode": "write_preview",
+      "description": "Previews saving an event to shortlist or trip.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:advisory",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.rule.save",
+      "title": "Save city rule",
+      "mode": "write_preview",
+      "description": "Previews a personal recommendation rule.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.journal.record",
+      "title": "Record trip journal",
+      "mode": "write_preview",
+      "description": "Previews post-trip or end-of-day reflection.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:beta",
+        "city-travel"
+      ]
+    },
+    {
+      "id": "city.maturity.feedback",
+      "title": "Record real-world test",
+      "mode": "write_preview",
+      "description": "Previews test result and maturity metrics update.",
+      "risk": "medium",
+      "requires_confirmation": true,
+      "supports_attachments": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "tags": [
+        "maturity:stable",
+        "city-travel"
+      ]
+    }
+  ],
+  "write_policy": "preview_confirm_commit",
+  "autonomous_actions": false,
+  "background_jobs": false,
+  "supports_attachments": false,
+  "attachment_transport": "none",
+  "health": {
+    "path": "/health",
+    "auth_required": false
+  }
+}

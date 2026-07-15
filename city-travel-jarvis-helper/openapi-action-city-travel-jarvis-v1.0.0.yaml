@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: City & Travel Jarvis Helper
+  description: Personal city, travel, route and place-memory helper with controlled writes.
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Healthcheck
+      parameters: []
+  /api/setup/validate:
+    get:
+      summary: Validate
+      operationId: validateCitySetup
+      parameters: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/manifest:
+    get:
+      summary: Plugin Manifest
+      operationId: getCityPluginManifest
+      parameters: []
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/read:
+    post:
+      summary: Read
+      operationId: executeCityReadCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/write/preview:
+    post:
+      summary: Preview
+      operationId: previewCityWriteCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+  /api/jarvis/write/commit:
+    post:
+      summary: Commit
+      operationId: commitCityWriteCapability
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    AttachmentRef:
+      properties:
+        ref:
+          type: string
+          title: Ref
+        name:
+          type: string
+          title: Name
+        mime_type:
+          type: string
+          title: Mime Type
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+        sha256:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sha256
+      type: object
+      required:
+      - ref
+      - name
+      - mime_type
+      title: AttachmentRef
+    CommitRequest:
+      properties:
+        contract_version:
+          type: string
+          const: 0.1.0
+          title: Contract Version
+          default: 0.1.0
+        request_id:
+          type: string
+          maxLength: 160
+          minLength: 4
+          title: Request Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+        capability:
+          type: string
+          maxLength: 120
+          minLength: 3
+          title: Capability
+        commit_token:
+          type: string
+          minLength: 20
+          title: Commit Token
+        confirmed:
+          type: boolean
+          const: true
+          title: Confirmed
+      type: object
+      required:
+      - request_id
+      - capability
+      - commit_token
+      - confirmed
+      title: CommitRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PluginRequest:
+      properties:
+        contract_version:
+          type: string
+          const: 0.1.0
+          title: Contract Version
+          default: 0.1.0
+        request_id:
+          type: string
+          maxLength: 160
+          minLength: 4
+          title: Request Id
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+        capability:
+          type: string
+          maxLength: 120
+          minLength: 3
+          title: Capability
+        locale:
+          type: string
+          title: Locale
+          default: ru-RU
+        timezone:
+          type: string
+          title: Timezone
+          default: Europe/Moscow
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        attachments:
+          items:
+            $ref: '#/components/schemas/AttachmentRef'
+          type: array
+          maxItems: 8
+          title: Attachments
+        context:
+          $ref: '#/components/schemas/RequestContext'
+      type: object
+      required:
+      - request_id
+      - capability
+      title: PluginRequest
+    RequestContext:
+      properties:
+        user_intent:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Intent
+        source_plugin_ids:
+          items:
+            type: string
+          type: array
+          title: Source Plugin Ids
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: false
+      type: object
+      title: RequestContext
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+servers:
+- url: https://YOUR-CITY-RAILWAY-DOMAIN
+  description: City & Travel Jarvis Helper on Railway
