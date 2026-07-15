@@ -39,7 +39,11 @@ class CityService:
   plan.update(capability=request.capability,dry_run=request.context.dry_run,created_at=now_iso());dg=digest(plan);pid=preview_store.put({'plan':plan,'digest':dg})
   token=create_token({'action':'city_write','preview_id':pid,'capability':request.capability,'digest':dg,'dry_run':request.context.dry_run})
   pv={'preview_id':pid,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds,'digest':dg,'write_diff':plan.get('diff',{}),'warnings':plan.get('warnings',[]),'requires_separate_confirmation':True,'nothing_written':True}
-  return self.response(request.request_id,'preview_ready',summary=plan['summary'],data={'entity_ids':plan.get('entity_ids',{})},warnings=plan.get('warnings',[]),sources=plan.get('sources',[]),preview=pv)
+  response=self.response(request.request_id,'preview_ready',summary=plan['summary'],data={'entity_ids':plan.get('entity_ids',{})},warnings=plan.get('warnings',[]),sources=plan.get('sources',[]),preview=pv)
+  # Duplicate the opaque commit state at the top level for GPT Actions reliability.
+  # The nested preview object remains the canonical contract representation.
+  response.update({'preview_id':pid,'capability':request.capability,'commit_token':token,'expires_in_seconds':settings.preview_ttl_seconds})
+  return response
  def commit(self,request):
   if request.capability not in WRITE_IDS:return self.response(request.request_id,'error',error={'code':'CAPABILITY_NOT_FOUND','retryable':False})
   if not settings.writes_enabled:return self.response(request.request_id,'rejected',summary='Writes are disabled',error={'code':'WRITES_DISABLED','retryable':False})

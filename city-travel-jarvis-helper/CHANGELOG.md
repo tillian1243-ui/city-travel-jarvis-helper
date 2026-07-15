@@ -1,10 +1,10 @@
 # Changelog
 
-## 1.0.0 — 2026-07-14
+## 1.0.1
+- Исправлена потеря `commit_token` в GPT Actions: токен и preview ID теперь возвращаются и в явной response-схеме, и на верхнем уровне ответа.
+- Уточнена политика подтверждения: подтверждение никогда не создаёт новый preview.
+- Москва закреплена как рабочая локация и `Europe/Moscow` как часовой пояс по умолчанию.
+- Запрос на смену контекстной локации больше не трактуется как автоматическая запись `city.rule.save`.
 
+## 1.0.0
 - Первый полный релиз City & Travel Jarvis.
-- Plugin Contract v0.1.0.
-- Google Sheets + Google Drive storage.
-- 29 предметных capability.
-- Place memory, Andrew/Katya ratings, trips, routes, events and maturity.
-- Controlled writes through preview/confirm/commit.

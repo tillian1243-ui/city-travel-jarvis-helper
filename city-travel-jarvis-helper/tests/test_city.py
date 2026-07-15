@@ -8,7 +8,7 @@ from app.storage.memory import MemoryStorage
 @pytest.fixture
 def s():object.__setattr__(settings,'writes_enabled',True);return CityService(MemoryStorage(memory_seed()))
 def r(cap,p=None,dry=False):return PluginRequest(request_id='REQ-1000',capability=cap,payload=p or {},context={'dry_run':dry})
-def c(s,pv,cap):return s.commit(CommitRequest(request_id='REQ-C',capability=cap,commit_token=pv['preview']['commit_token'],confirmed=True))
+def c(s,pv,cap):return s.commit(CommitRequest(request_id='REQ-C',capability=cap,commit_token=pv['commit_token'],confirmed=True))
 def test_manifest(s):assert s.get_manifest()['contract_version']=='0.1.0' and len(s.get_manifest()['capabilities'])==29
 def test_setup(s):assert s.validate_setup()['ready'] and s.validate_setup()['exports_ready']
 def test_unknown(s):assert s.read(r('city.nope'))['error']['code']=='CAPABILITY_NOT_FOUND'
@@ -25,7 +25,7 @@ def test_photowalk(s):assert any(x['code']=='NO_LIGHT_CONTEXT' for x in s.read(r
 def test_weather(s):assert len(s.read(r('city.weather.adapt',{'forecast':{'precipitation_probability':80,'wind_kmh':30}}))['data']['adaptations'])==2
 def test_departure(s):assert s.read(r('city.logistics.departure',{'departure_at':'2026-07-15T18:00:00+03:00','travel_minutes':45,'buffer_minutes':20,'has_luggage':True}))['data']['total_reserved_minutes']==75
 def test_place_preview_no_write(s):
- pv=s.preview(r('city.place.save',{'name':'New','city':'Москва'}));assert pv['status']=='preview_ready' and s.storage.read_rows('Places')==[]
+ pv=s.preview(r('city.place.save',{'name':'New','city':'Москва'}));assert pv['status']=='preview_ready' and pv['commit_token']==pv['preview']['commit_token'] and pv['preview_id']==pv['preview']['preview_id'] and s.storage.read_rows('Places')==[]
 def test_place_commit(s):
  pv=s.preview(r('city.place.save',{'name':'New','city':'Москва'}));assert c(s,pv,'city.place.save')['status']=='committed' and s.storage.read_rows('Places')[0]['Name']=='New'
 def test_solo_experience(s):
