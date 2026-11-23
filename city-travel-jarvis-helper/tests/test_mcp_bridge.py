@@ -107,10 +107,11 @@ def test_authenticated_owner_can_read_but_not_commit_without_confirmation(monkey
             assert not result.is_error
             if "commitStatementImport" in TOOL_OPERATION_IDS:
                 name, args = "commitStatementImport", {"commit_token": "invalid-token-for-test", "confirmed": False}
-            elif "commitWorkoutImportByPreviewId" in TOOL_OPERATION_IDS:
-                name, args = "commitWorkoutImportByPreviewId", {"preview_id": "INVALID-PREVIEW", "confirmed": False}
+            elif "commitProgramUpdateByPreviewId" in TOOL_OPERATION_IDS:
+                name, args = "commitProgramUpdateByPreviewId", {"preview_id": "INVALID-PREVIEW", "confirmed": False}
             else:
                 name, args = "commitCityWriteCapability", {"request_id": "REQ-MCP-TEST", "capability": "city.rule.save", "preview_id": "INVALID-PREVIEW", "confirmed": False}
+            assert name in TOOL_OPERATION_IDS
             with pytest.raises(Exception):
                 await client.call_tool(name, args)
     with TestClient(application):
