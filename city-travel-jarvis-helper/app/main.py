@@ -31,3 +31,8 @@ def custom_openapi():
    if path!='/health':op['security']=[{'bearerAuth':[]}]
  app.openapi_schema=schema;return schema
 app.openapi=custom_openapi
+
+
+# Optional authenticated MCP; disabled until the owner configures OAuth.
+from app.mcp_bridge import build_application
+application = build_application(app)
