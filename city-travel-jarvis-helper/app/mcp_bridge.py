@@ -119,6 +119,7 @@ def build_application(api: FastAPI):
 
     provider = OpenAPIProvider(curated_spec(api), internal_client, mcp_component_fn=customize)
     auth = GitHubProvider(
+        required_scopes=["read:user"],
         client_id=os.environ["MCP_GITHUB_CLIENT_ID"].strip(),
         client_secret=os.environ["MCP_GITHUB_CLIENT_SECRET"].strip(),
         base_url=f"{base_url}/mcp-server",
